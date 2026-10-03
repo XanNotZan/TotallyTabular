@@ -36,7 +36,7 @@
   --gutter:clamp(16px,4vw,40px);
   --gx-l:max(var(--gutter),env(safe-area-inset-left,0px));
   --gx-r:max(var(--gutter),env(safe-area-inset-right,0px));
-  --bar:60px;
+  --bar:56px;
   --mark-size:clamp(3.4rem,16.5vw,13.5rem);
 }
 @media (prefers-color-scheme:dark){
@@ -80,6 +80,8 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%;scrollbar-gutter:stable
 *,*::before,*::after{box-sizing:border-box}
 body{
   margin:0;
+  /* full-height column: main takes the slack, so the footer sits at the bottom of the screen on short pages */
+  display:flex;flex-direction:column;min-height:100vh;min-height:100dvh;
   color:var(--ink);
   background-color:var(--paper);
   background-image:
@@ -91,6 +93,7 @@ body{
   font:400 1rem/1.55 var(--body);
   -webkit-font-smoothing:antialiased;
 }
+main{flex:1 0 auto}
 a{color:var(--signal)}
 a,button{-webkit-tap-highlight-color:transparent;touch-action:manipulation}
 :where(a,button):focus-visible{outline:2px solid var(--signal);outline-offset:3px}
@@ -136,7 +139,8 @@ button.btn{appearance:none;-webkit-appearance:none;margin:0;font-family:var(--bo
 .lede code{font-family:var(--mono);font-size:.9em;color:var(--ink)}
 .cta{display:flex;flex-wrap:wrap;gap:12px}
 
-.strip{position:relative;margin:0;height:clamp(190px,24vw,270px);border-top:1px solid var(--line);border-bottom:1px solid var(--line);overflow:hidden}
+/* whole 28px grid cells, +1px so the bottom border lands on a grid line too (the fit script snaps the top) */
+.strip{position:relative;margin:0;height:clamp(190px,24vw,270px);height:calc(round(clamp(190px,24vw,270px),28px) + 1px);border-top:1px solid var(--line);border-bottom:1px solid var(--line);overflow:hidden}
 #home{padding-bottom:clamp(48px,7vw,96px)}
 .strip canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
 .lab{position:absolute;top:12px;font:500 .66rem/1 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--ink-2);background:var(--paper);padding:5px 7px;border-radius:2px;white-space:nowrap}
@@ -319,7 +323,6 @@ button.btn{appearance:none;-webkit-appearance:none;margin:0;font-family:var(--bo
           </ul>
           <div class="links">
             <span>paper: <a href="https://arxiv.org/abs/2604.11529" target="_blank" rel="noopener">arXiv:2604.11529</a></span>
-            <span>leaderboard: <a href="https://benchmark.smlcrm.com" target="_blank" rel="noopener">benchmark.smlcrm.com</a></span>
           </div>
         </article>
       </div>
@@ -465,17 +468,21 @@ document.documentElement.setAttribute('lang','en');
   route(false);
 })();
 
-/* ---- fit the wordmark: the longer line fills the space left beside the buttons, whatever font loads ---- */
+/* ---- fit the wordmark: the longer line fills the space left beside the buttons, whatever font loads.
+        Then snap the graph strip onto the background grid. ---- */
 (function(){
-  var hero=document.querySelector('.hero'),mark=document.querySelector('.mark'),cta=document.querySelector('.cta');
+  var hero=document.querySelector('.hero'),mark=document.querySelector('.mark'),cta=document.querySelector('.cta'),strip=document.querySelector('.strip');
   if(!hero||!mark||!cta)return;
-  var MAX=13.5*16,MIN=40,GAP=48,raf=0;
+  var MAX=13.5*16,MIN=40,GAP=48,CELL=28,raf=0;
   function fit(){
     raf=0;
+    /* Home is hidden (display:none), so everything measures 0 and the size would collapse to MIN. Refit on the hashchange that shows it. */
+    if(!hero.offsetWidth)return;
     var hs=getComputedStyle(hero);
     var inner=hero.clientWidth-parseFloat(hs.paddingLeft)-parseFloat(hs.paddingRight);
-    var prev=mark.style.fontSize;mark.style.fontSize='100px';
-    var ratio=mark.scrollWidth/100;mark.style.fontSize=prev;
+    /* max-content: measure the text itself, not the grid column it is stretched across */
+    var prev=mark.style.fontSize;mark.style.fontSize='100px';mark.style.width='max-content';
+    var ratio=mark.scrollWidth/100;mark.style.fontSize=prev;mark.style.width='';
     var avail=inner;
     if(window.matchMedia&&window.matchMedia('(min-width:900px)').matches){
       var need=0,b=cta.children;
@@ -484,11 +491,18 @@ document.documentElement.setAttribute('lang','en');
     }
     var size=Math.max(MIN,Math.min(MAX,Math.floor((avail-4)/ratio)));
     hero.style.setProperty('--mark-size',size+'px');
+    if(strip){
+      /* grid lines run every CELL px from the top of the page: push the strip's top border down onto the next one */
+      strip.style.marginTop='';
+      var y=strip.getBoundingClientRect().top+window.pageYOffset;
+      strip.style.marginTop=(CELL-y%CELL)%CELL+'px';
+    }
   }
   function queue(){if(!raf)raf=requestAnimationFrame(fit);}
   fit();
   window.addEventListener('resize',queue);
   window.addEventListener('orientationchange',queue);
+  window.addEventListener('hashchange',queue);
   if(document.fonts&&document.fonts.ready){document.fonts.ready.then(queue);}
   if(document.fonts&&document.fonts.addEventListener){document.fonts.addEventListener('loadingdone',queue);}
 })();
