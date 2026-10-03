@@ -1,0 +1,30 @@
+name: Refresh blog.json from Substack
+
+# Runs four times a day once the SUBSTACK_URL repository variable is set
+# (repo Settings -> Secrets and variables -> Actions -> Variables -> New repository variable).
+# Until then every run is a no-op.
+on:
+  schedule:
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    env:
+      SUBSTACK_URL: ${{ vars.SUBSTACK_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build blog.json
+        if: env.SUBSTACK_URL != ''
+        run: python3 fetch_substack.py "$SUBSTACK_URL" --out blog.json
+      - name: Commit if changed
+        if: env.SUBSTACK_URL != ''
+        run: |
+          git config user.name "blog-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add blog.json
+          git diff --cached --quiet && echo "no change" || (git commit -m "Refresh blog.json" && git push)
