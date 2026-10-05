@@ -656,6 +656,8 @@ document.documentElement.setAttribute('lang','en');
   function fail(msg){email.setAttribute('aria-invalid','true');hint.textContent=msg;hint.classList.add('err');email.focus();}
   function reset(){form.hidden=false;done.hidden=true;email.value='';clearError();go.disabled=false;go.textContent='Subscribe';}
   function show(){
+    /* wake the web app while the visitor types: after a few idle minutes its first request takes 3-11 s, warm ones 1-2 s */
+    if(SUBSCRIBE_ENDPOINT&&window.fetch){fetch(SUBSCRIBE_ENDPOINT,{mode:'no-cors'}).catch(function(){});}
     reset();
     if(native){dlg.showModal();}
     else{scrim=document.createElement('div');scrim.className='scrim';document.body.appendChild(scrim);scrim.addEventListener('click',hide);dlg.setAttribute('open','');dlg.classList.add('fb');}

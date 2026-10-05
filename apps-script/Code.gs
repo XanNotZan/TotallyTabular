@@ -21,18 +21,11 @@ function doPost(e) {
     // appendRow stores anything starting with = as a live formula (and + - act the same in Excel after a CSV export): refuse those.
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email) || /^[=+\-]/.test(email)) return json({ ok: false, error: 'invalid_email' });
 
-    var lock = LockService.getScriptLock();
-    lock.waitLock(10000);
-    try {
-      var sheet = subscribersTab(SpreadsheetApp.getActiveSpreadsheet());
-      var last = sheet.getLastRow();
-      var existing = last > 1 ? sheet.getRange(2, 2, last - 1, 1).getValues().map(function (r) { return String(r[0]).toLowerCase(); }) : [];
-      if (existing.indexOf(email) === -1) {
-        sheet.appendRow([new Date(), email, String(body.source || 'site').replace(/[^\w.-]/g, '').slice(0, 100)]);
-      }
-    } finally {
-      lock.releaseLock();
-    }
+    // No duplicate check: reading the list first added ~0.5 s to every signup. appendRow is atomic, so no lock either.
+    // Repeat signups add repeat rows; Google Groups ignores duplicate members, and Data -> Data cleanup -> Remove
+    // duplicates tidies the Sheet before any mail merge.
+    subscribersTab(SpreadsheetApp.getActiveSpreadsheet())
+      .appendRow([new Date(), email, String(body.source || 'site').replace(/[^\w.-]/g, '').slice(0, 100)]);
     return json({ ok: true });
   } catch (err) {
     console.error(err); // shows up under Executions in the Apps Script editor

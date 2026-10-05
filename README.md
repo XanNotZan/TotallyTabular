@@ -42,7 +42,7 @@ DNS changes can take up to 24-48 hours, usually far less.
 
 ## Mailing list (Google Workspace)
 
-The Subscribe form posts to `SUBSCRIBE_ENDPOINT` in `index.html`, an Apps Script web app that adds each address to the "Subscribers" tab of the "Totally Tabular mailing list" Google Sheet in community@totallytabular.org's Drive. Failed signups are logged under Executions in the Apps Script editor.
+The Subscribe form posts to `SUBSCRIBE_ENDPOINT` in `index.html`, an Apps Script web app that adds each address to the "Subscribers" tab of the "Totally Tabular mailing list" Google Sheet in community@totallytabular.org's Drive. Failed signups are logged under Executions in the Apps Script editor. Someone who signs up twice gets two rows (skipping the duplicate check keeps signups fast): a Google Group ignores repeat members, but before any mail merge straight from the Sheet run Data → Data cleanup → Remove duplicates.
 
 The script is deployed from `apps-script/` with [clasp](https://github.com/google/clasp). To change it:
 
