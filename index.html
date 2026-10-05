@@ -422,7 +422,7 @@ button.btn{appearance:none;-webkit-appearance:none;margin:0;font-family:var(--bo
   <div class="sheet done" id="sub-done" hidden>
     <button type="button" class="modal-x" id="sub-close-2" aria-label="Close">×</button>
     <h2>You're on the list</h2>
-    <p class="lede">You'll hear from us soon! In the meantime, join our <a href="https://discord.gg/H87gfV5Eku" target="_blank" rel="noopener">Discord</a>.</p>
+    <p class="lede">Check your inbox for a confirmation email. In the meantime, join our <a href="https://discord.gg/H87gfV5Eku" target="_blank" rel="noopener">Discord</a>!</p>
     <button type="button" class="btn" id="sub-ok">Done</button>
   </div>
 </dialog>
@@ -634,35 +634,25 @@ document.documentElement.setAttribute('lang','en');
   }
 })();
 
-/* ---- subscribe modal: UI only for now. Wire `subscribe()` to the real mailing list later. ---- */
+/* ---- subscribe modal: sends the address to the mailing list web app (apps-script/Code.gs) ---- */
 (function(){
-  var dlg=document.getElementById('subscribe'),open=document.getElementById('sub-open'),form=document.getElementById('sub-form'),email=document.getElementById('sub-email'),go=document.getElementById('sub-go'),hint=document.getElementById('sub-hint'),done=document.getElementById('sub-done'),ok=document.getElementById('sub-ok');
+  var dlg=document.getElementById('subscribe'),open=document.getElementById('sub-open'),form=document.getElementById('sub-form'),email=document.getElementById('sub-email'),hint=document.getElementById('sub-hint'),done=document.getElementById('sub-done'),ok=document.getElementById('sub-ok');
   if(!dlg||!open||!form)return;
   var HINT=hint.textContent,native=typeof dlg.showModal==='function',scrim=null;
 
-  /* Mailing list endpoint. Leave empty to keep the UI-only stub; paste the Apps Script web app URL (ends in /exec) to go live.
-     The request is a plain-text POST so the browser sends it without a CORS preflight. */
+  /* Mailing list endpoint: the Apps Script web app in apps-script/ (empty keeps the form UI-only).
+     The page doesn't wait for its answer (2-4 s usually, sometimes far longer): the success screen shows at once and the script
+     emails a confirmation, so a visitor who gets none knows to sign up again. keepalive lets the request finish if the tab closes. */
   var SUBSCRIBE_ENDPOINT='https://script.google.com/macros/s/AKfycbxDSJLAvqmQ3S8f6_hktM9La-kYMfqKXfX7Kzo70Inww_razzLzCSHA0BqfqBbeQ8XD/exec';
   function subscribe(address){
-    if(!SUBSCRIBE_ENDPOINT){return new Promise(function(resolve){setTimeout(resolve,500);});}
-    return fetch(SUBSCRIBE_ENDPOINT,{method:'POST',body:JSON.stringify({email:address,source:location.hostname||'site'})}).then(function(r){
-      if(r.type==='opaque')return;
-      if(!r.ok)throw new Error('http '+r.status);
-      return r.json().then(function(j){if(j&&j.ok===false)throw new Error(j.error||'rejected');},function(){});
-    });
+    if(!SUBSCRIBE_ENDPOINT||!window.fetch)return;
+    fetch(SUBSCRIBE_ENDPOINT,{method:'POST',mode:'no-cors',keepalive:true,body:JSON.stringify({email:address,source:location.hostname||'site'})}).catch(function(){});
   }
-  /* Wake the web app early: after a few idle minutes its first request takes 3-11 s, warm ones 1-2 s. Pinged when the page
-     loads, and again when the Subscribe window opens in case the tab sat idle since.
-     ponytail: one Apps Script run per page view, and Google allows 30 at once per account; if a traffic spike ever makes
-     signups fail, ping only when the Subscribe window opens. */
-  function wake(){if(SUBSCRIBE_ENDPOINT&&window.fetch){fetch(SUBSCRIBE_ENDPOINT,{mode:'no-cors'}).catch(function(){});}}
-  if(document.readyState==='complete')wake();else window.addEventListener('load',wake);
 
   function clearError(){email.removeAttribute('aria-invalid');hint.textContent=HINT;hint.classList.remove('err');}
   function fail(msg){email.setAttribute('aria-invalid','true');hint.textContent=msg;hint.classList.add('err');email.focus();}
-  function reset(){form.hidden=false;done.hidden=true;email.value='';clearError();go.disabled=false;go.textContent='Subscribe';}
+  function reset(){form.hidden=false;done.hidden=true;email.value='';clearError();}
   function show(){
-    wake();
     reset();
     if(native){dlg.showModal();}
     else{scrim=document.createElement('div');scrim.className='scrim';document.body.appendChild(scrim);scrim.addEventListener('click',hide);dlg.setAttribute('open','');dlg.classList.add('fb');}
@@ -683,15 +673,11 @@ document.documentElement.setAttribute('lang','en');
     e.preventDefault();
     var v=email.value.trim();
     if(!v){fail('Enter your email address.');return;}
-    if(!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v)){fail('That doesn\'t look like an email address.');return;}
-    clearError();go.disabled=true;go.textContent='Subscribing\u2026';
-    subscribe(v).then(function(){
-      form.hidden=true;done.hidden=false;
-      setTimeout(function(){ok.focus();},30);
-    },function(){
-      go.disabled=false;go.textContent='Subscribe';
-      fail('Something went wrong. Try again in a moment.');
-    });
+    /* same rule as the script, which refuses a leading = + - */
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v)||/^[=+\-]/.test(v)){fail('That doesn\'t look like an email address.');return;}
+    subscribe(v);
+    form.hidden=true;done.hidden=false;
+    setTimeout(function(){ok.focus();},30);
   });
 })();
 
