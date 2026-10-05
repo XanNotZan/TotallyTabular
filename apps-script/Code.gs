@@ -23,7 +23,8 @@ function doPost(e) {
     var body = {};
     try { body = JSON.parse((e && e.postData && e.postData.contents) || '{}'); } catch (err) {}
     var email = String(body.email || '').trim().toLowerCase();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) return json({ ok: false, error: 'invalid_email' });
+    // appendRow stores anything starting with = as a live formula (and + - act the same in Excel after a CSV export): refuse those.
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email) || /^[=+\-]/.test(email)) return json({ ok: false, error: 'invalid_email' });
 
     var lock = LockService.getScriptLock();
     lock.waitLock(10000);
@@ -33,7 +34,7 @@ function doPost(e) {
       var last = sheet.getLastRow();
       var existing = last > 1 ? sheet.getRange(2, 2, last - 1, 1).getValues().map(function (r) { return String(r[0]).toLowerCase(); }) : [];
       if (existing.indexOf(email) === -1) {
-        sheet.appendRow([new Date(), email, String(body.source || 'site').slice(0, 100)]);
+        sheet.appendRow([new Date(), email, String(body.source || 'site').replace(/[^\w.-]/g, '').slice(0, 100)]);
       }
     } finally {
       lock.releaseLock();
