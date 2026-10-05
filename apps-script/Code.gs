@@ -1,19 +1,14 @@
 /**
  * Totally Tabular mailing list capture (Google Apps Script, runs inside your Google Workspace).
  *
- * Setup, as community@totallytabular.org:
- *   1. Create a Google Sheet named "Mailing list". Rename the first tab to "Subscribers" and put these
- *      headers in row 1:  timestamp | email | source
- *   2. In that Sheet: Extensions -> Apps Script. Delete the sample code, paste this file, save.
- *   3. Deploy -> New deployment -> type "Web app".
- *        Execute as: Me (community@totallytabular.org)
- *        Who has access: Anyone
- *      Authorize when asked, then copy the Web app URL (it ends in /exec).
- *   4. In index.html, set  var SUBSCRIBE_ENDPOINT = '<that URL>';  and redeploy the site.
- *   5. Test: submit the form on the live site and watch a row appear in the Sheet.
+ * Signups land in the "Subscribers" tab of the Sheet this script is attached to. The first signup creates
+ * that tab with its header row (timestamp | email | source), so there is nothing to set up by hand.
  *
- * After any code change here you must create a NEW deployment (or "Manage deployments" -> edit -> new version);
- * the /exec URL only serves the deployed version.
+ * Deployed from this folder with clasp (see README, "Mailing list"). appsscript.json holds the web app
+ * settings: it runs as the account that deployed it (community@totallytabular.org), anyone can call it,
+ * and it can only touch the spreadsheet it is attached to.
+ *
+ * After any code change, push and update the existing deployment: the /exec URL only serves the deployed version.
  */
 
 var TAB = 'Subscribers';
@@ -29,8 +24,7 @@ function doPost(e) {
     var lock = LockService.getScriptLock();
     lock.waitLock(10000);
     try {
-      var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(TAB);
-      if (!sheet) throw new Error('missing tab ' + TAB);
+      var sheet = subscribersTab(SpreadsheetApp.getActiveSpreadsheet());
       var last = sheet.getLastRow();
       var existing = last > 1 ? sheet.getRange(2, 2, last - 1, 1).getValues().map(function (r) { return String(r[0]).toLowerCase(); }) : [];
       if (existing.indexOf(email) === -1) {
@@ -41,6 +35,7 @@ function doPost(e) {
     }
     return json({ ok: true });
   } catch (err) {
+    console.error(err); // shows up under Executions in the Apps Script editor
     return json({ ok: false, error: 'server_error' });
   }
 }
@@ -48,6 +43,17 @@ function doPost(e) {
 // A GET in the browser is a quick health check that the deployment is alive.
 function doGet() {
   return json({ ok: true, service: 'totally-tabular-subscribe' });
+}
+
+// The Subscribers tab, created with its header row on the first signup. A new spreadsheet's blank first tab is
+// reused; a tab that already holds data is never renamed.
+function subscribersTab(ss) {
+  var sheet = ss.getSheetByName(TAB);
+  if (sheet) return sheet;
+  var first = ss.getSheets()[0];
+  sheet = first.getLastRow() === 0 ? first.setName(TAB) : ss.insertSheet(TAB);
+  sheet.appendRow(['timestamp', 'email', 'source']);
+  return sheet;
 }
 
 function json(obj) {

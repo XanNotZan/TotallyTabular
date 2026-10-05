@@ -8,7 +8,7 @@ Static site for totallytabular.org. One page (`index.html`), one data file (`blo
 - `blog.json` — the posts the Blog page shows. Sample posts until the Substack exists.
 - `fetch_substack.py` — rebuilds `blog.json` from a Substack RSS feed. `python3 fetch_substack.py https://NAME.substack.com`
 - `.github/workflows/refresh-blog.yml` — runs that script on a schedule once the `SUBSTACK_URL` repository variable is set.
-- `apps-script/Code.gs` — the Google Apps Script that receives Subscribe form submissions into a Google Sheet. Setup steps are at the top of the file.
+- `apps-script/Code.gs` — the Google Apps Script that receives Subscribe form submissions into a Google Sheet. `apps-script/appsscript.json` holds its web app settings.
 - `CNAME` — tells GitHub Pages the custom domain.
 
 ## Going live on GitHub Pages
@@ -42,4 +42,15 @@ DNS changes can take up to 24-48 hours, usually far less.
 
 ## Mailing list (Google Workspace)
 
-Follow the steps at the top of `apps-script/Code.gs`, then paste the deployment URL into `SUBSCRIBE_ENDPOINT` in `index.html`.
+The Subscribe form posts to `SUBSCRIBE_ENDPOINT` in `index.html`, an Apps Script web app that adds each address to the "Subscribers" tab of the "Totally Tabular mailing list" Google Sheet in community@totallytabular.org's Drive. Failed signups are logged under Executions in the Apps Script editor.
+
+The script is deployed from `apps-script/` with [clasp](https://github.com/google/clasp). To change it:
+
+```sh
+cd apps-script
+npx @google/clasp login        # once per machine, as community@totallytabular.org
+npx @google/clasp push
+npx @google/clasp update-deployment <deployment ID>   # the part of SUBSCRIBE_ENDPOINT between /s/ and /exec
+```
+
+`update-deployment` keeps the same URL, so `index.html` stays as it is. `apps-script/.clasp.json`, which links the folder to the script, is gitignored because it holds the Sheet's ID. On a new machine, run `npx @google/clasp clone <script ID>` inside `apps-script/` (the script ID is in the Apps Script editor's URL).

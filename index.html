@@ -642,7 +642,7 @@ document.documentElement.setAttribute('lang','en');
 
   /* Mailing list endpoint. Leave empty to keep the UI-only stub; paste the Apps Script web app URL (ends in /exec) to go live.
      The request is a plain-text POST so the browser sends it without a CORS preflight. */
-  var SUBSCRIBE_ENDPOINT='';
+  var SUBSCRIBE_ENDPOINT='https://script.google.com/macros/s/AKfycbxDSJLAvqmQ3S8f6_hktM9La-kYMfqKXfX7Kzo70Inww_razzLzCSHA0BqfqBbeQ8XD/exec';
   function subscribe(address){
     if(!SUBSCRIBE_ENDPOINT){return new Promise(function(resolve){setTimeout(resolve,500);});}
     return fetch(SUBSCRIBE_ENDPOINT,{method:'POST',body:JSON.stringify({email:address,source:location.hostname||'site'})}).then(function(r){
