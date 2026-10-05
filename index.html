@@ -651,13 +651,18 @@ document.documentElement.setAttribute('lang','en');
       return r.json().then(function(j){if(j&&j.ok===false)throw new Error(j.error||'rejected');},function(){});
     });
   }
+  /* Wake the web app early: after a few idle minutes its first request takes 3-11 s, warm ones 1-2 s. Pinged when the page
+     loads, and again when the Subscribe window opens in case the tab sat idle since.
+     ponytail: one Apps Script run per page view, and Google allows 30 at once per account; if a traffic spike ever makes
+     signups fail, ping only when the Subscribe window opens. */
+  function wake(){if(SUBSCRIBE_ENDPOINT&&window.fetch){fetch(SUBSCRIBE_ENDPOINT,{mode:'no-cors'}).catch(function(){});}}
+  if(document.readyState==='complete')wake();else window.addEventListener('load',wake);
 
   function clearError(){email.removeAttribute('aria-invalid');hint.textContent=HINT;hint.classList.remove('err');}
   function fail(msg){email.setAttribute('aria-invalid','true');hint.textContent=msg;hint.classList.add('err');email.focus();}
   function reset(){form.hidden=false;done.hidden=true;email.value='';clearError();go.disabled=false;go.textContent='Subscribe';}
   function show(){
-    /* wake the web app while the visitor types: after a few idle minutes its first request takes 3-11 s, warm ones 1-2 s */
-    if(SUBSCRIBE_ENDPOINT&&window.fetch){fetch(SUBSCRIBE_ENDPOINT,{mode:'no-cors'}).catch(function(){});}
+    wake();
     reset();
     if(native){dlg.showModal();}
     else{scrim=document.createElement('div');scrim.className='scrim';document.body.appendChild(scrim);scrim.addEventListener('click',hide);dlg.setAttribute('open','');dlg.classList.add('fb');}
