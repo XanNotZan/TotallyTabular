@@ -26,17 +26,8 @@ var FIRESTORE_PROJECT = 'totallytabular-mailing-list';
 var INBOX = 'https://firestore.googleapis.com/v1/projects/' + FIRESTORE_PROJECT + '/databases/(default)/documents/signups';
 
 // The site's nudge after it saved a signup to Firestore.
-function doPost(e) {
+function doPost() {
   try {
-    // TEMP: a body with an email is a direct signup from a cached copy of the old page. Remove once those have expired.
-    var body = {};
-    try { body = JSON.parse((e && e.postData && e.postData.contents) || '{}'); } catch (err) {}
-    if (body.email) {
-      var lock = LockService.getScriptLock();
-      lock.waitLock(10000);
-      try { addSubscriber(subscribersTab(SpreadsheetApp.getActiveSpreadsheet()), body.email, body.source); } finally { lock.releaseLock(); }
-      return json({ ok: true });
-    }
     return json({ ok: true, processed: processSignups() });
   } catch (err) {
     console.error(err); // shows up under Executions in the Apps Script editor
