@@ -634,24 +634,29 @@ document.documentElement.setAttribute('lang','en');
   }
 })();
 
-/* ---- subscribe modal: sends the address to the mailing list web app (apps-script/Code.gs) ---- */
+/* ---- subscribe modal: saves the address to the mailing list's Firestore inbox (firestore/, apps-script/) ---- */
 (function(){
-  var dlg=document.getElementById('subscribe'),open=document.getElementById('sub-open'),form=document.getElementById('sub-form'),email=document.getElementById('sub-email'),hint=document.getElementById('sub-hint'),done=document.getElementById('sub-done'),ok=document.getElementById('sub-ok');
+  var dlg=document.getElementById('subscribe'),open=document.getElementById('sub-open'),form=document.getElementById('sub-form'),email=document.getElementById('sub-email'),go=document.getElementById('sub-go'),hint=document.getElementById('sub-hint'),done=document.getElementById('sub-done'),ok=document.getElementById('sub-ok');
   if(!dlg||!open||!form)return;
   var HINT=hint.textContent,native=typeof dlg.showModal==='function',scrim=null;
 
-  /* Mailing list endpoint: the Apps Script web app in apps-script/ (empty keeps the form UI-only).
-     The page doesn't wait for its answer (2-4 s usually, sometimes far longer): the success screen shows at once and the script
-     emails a confirmation, so a visitor who gets none knows to sign up again. keepalive lets the request finish if the tab closes. */
-  var SUBSCRIBE_ENDPOINT='https://script.google.com/macros/s/AKfycbxDSJLAvqmQ3S8f6_hktM9La-kYMfqKXfX7Kzo70Inww_razzLzCSHA0BqfqBbeQ8XD/exec';
+  /* Firestore (Google's database) takes the signup in a fraction of a second, so the success screen waits for the real
+     answer; its rules (firestore/firestore.rules) let this page only add {email}. The page then nudges the Apps Script in
+     apps-script/, which moves the signup into the Sheet and emails the confirmation. It also checks every minute, so a lost
+     nudge only delays the email. The key only identifies the Firebase project and is meant to be public. */
+  var INBOX='https://firestore.googleapis.com/v1/projects/totallytabular-mailing-list/databases/(default)/documents/signups?key=AIzaSyAH0skpPGJdGzNlezBy19qMHOI1l_Ntniw';
+  var NUDGE='https://script.google.com/macros/s/AKfycbxDSJLAvqmQ3S8f6_hktM9La-kYMfqKXfX7Kzo70Inww_razzLzCSHA0BqfqBbeQ8XD/exec';
   function subscribe(address){
-    if(!SUBSCRIBE_ENDPOINT||!window.fetch)return;
-    fetch(SUBSCRIBE_ENDPOINT,{method:'POST',mode:'no-cors',keepalive:true,body:JSON.stringify({email:address,source:location.hostname||'site'})}).catch(function(){});
+    return fetch(INBOX,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({fields:{email:{stringValue:address}}})})
+      .then(function(r){
+        if(!r.ok)throw new Error('firestore '+r.status);
+        fetch(NUDGE,{method:'POST',mode:'no-cors',keepalive:true}).catch(function(){});
+      });
   }
 
   function clearError(){email.removeAttribute('aria-invalid');hint.textContent=HINT;hint.classList.remove('err');}
   function fail(msg){email.setAttribute('aria-invalid','true');hint.textContent=msg;hint.classList.add('err');email.focus();}
-  function reset(){form.hidden=false;done.hidden=true;email.value='';clearError();}
+  function reset(){form.hidden=false;done.hidden=true;email.value='';clearError();go.disabled=false;go.textContent='Subscribe';}
   function show(){
     reset();
     if(native){dlg.showModal();}
@@ -673,11 +678,16 @@ document.documentElement.setAttribute('lang','en');
     e.preventDefault();
     var v=email.value.trim();
     if(!v){fail('Enter your email address.');return;}
-    /* same rule as the script, which refuses a leading = + - */
+    /* same rule as the Firestore rules, which refuse a leading = + - */
     if(!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v)||/^[=+\-]/.test(v)){fail('That doesn\'t look like an email address.');return;}
-    subscribe(v);
-    form.hidden=true;done.hidden=false;
-    setTimeout(function(){ok.focus();},30);
+    clearError();go.disabled=true;go.textContent='Subscribing…';
+    subscribe(v).then(function(){
+      form.hidden=true;done.hidden=false;
+      setTimeout(function(){ok.focus();},30);
+    },function(){
+      go.disabled=false;go.textContent='Subscribe';
+      fail('Something went wrong. Try again in a moment.');
+    });
   });
 })();
 
