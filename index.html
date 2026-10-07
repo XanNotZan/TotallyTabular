@@ -643,8 +643,8 @@ document.documentElement.setAttribute('lang','en');
   /* Firestore (Google's database) takes the signup in a fraction of a second, so the success screen waits for the real
      answer; its rules (firestore/firestore.rules) let this page only add {email}. The page then nudges the Apps Script in
      apps-script/, which moves the signup into the Sheet and emails the confirmation. It also checks every minute, so a lost
-     nudge only delays the email. The key only identifies the Firebase project and is meant to be public. */
-  var INBOX='https://firestore.googleapis.com/v1/projects/totallytabular-mailing-list/databases/(default)/documents/signups?key=AIzaSyAH0skpPGJdGzNlezBy19qMHOI1l_Ntniw';
+     nudge only delays the email. No API key: Firestore checks every request against those rules, with or without one. */
+  var INBOX='https://firestore.googleapis.com/v1/projects/totallytabular-mailing-list/databases/(default)/documents/signups';
   var NUDGE='https://script.google.com/macros/s/AKfycbxDSJLAvqmQ3S8f6_hktM9La-kYMfqKXfX7Kzo70Inww_razzLzCSHA0BqfqBbeQ8XD/exec';
   function subscribe(address){
     return fetch(INBOX,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({fields:{email:{stringValue:address}}})})
