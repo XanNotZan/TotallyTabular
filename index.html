@@ -427,6 +427,25 @@ button.btn{appearance:none;-webkit-appearance:none;margin:0;font-family:var(--bo
   </div>
 </dialog>
 
+<dialog class="modal" id="unsub" aria-labelledby="unsub-title">
+  <div class="sheet" id="unsub-ask">
+    <button type="button" class="modal-x" data-close aria-label="Close">×</button>
+    <h2 id="unsub-title">Unsubscribe?</h2>
+    <p class="lede">You'll stop getting Totally Tabular emails at this address.</p>
+    <div class="row">
+      <button type="button" class="btn primary" id="unsub-go">Unsubscribe</button>
+      <button type="button" class="btn" data-close>Cancel</button>
+    </div>
+    <p class="hint err" id="unsub-hint" aria-live="polite" hidden></p>
+  </div>
+  <div class="sheet done" id="unsub-done" hidden>
+    <button type="button" class="modal-x" data-close aria-label="Close">×</button>
+    <h2>You're unsubscribed</h2>
+    <p class="lede">You won't get any more emails from us. Changed your mind? You can subscribe again any time.</p>
+    <button type="button" class="btn" data-close>Done</button>
+  </div>
+</dialog>
+
 <footer class="foot">
   <div class="wrap">
     <span>Totally Tabular · est. 2026</span>
@@ -634,25 +653,26 @@ document.documentElement.setAttribute('lang','en');
   }
 })();
 
-/* ---- subscribe modal: saves the address to the mailing list's Firestore inbox (firestore/, apps-script/) ---- */
+/* ---- mailing list: the subscribe modal and the unsubscribe page, both saving to the Firestore inbox (firestore/, apps-script/) ---- */
 (function(){
   var dlg=document.getElementById('subscribe'),open=document.getElementById('sub-open'),form=document.getElementById('sub-form'),email=document.getElementById('sub-email'),go=document.getElementById('sub-go'),hint=document.getElementById('sub-hint'),done=document.getElementById('sub-done'),ok=document.getElementById('sub-ok');
   if(!dlg||!open||!form)return;
   var HINT=hint.textContent,native=typeof dlg.showModal==='function',scrim=null;
 
-  /* Firestore (Google's database) takes the signup in a fraction of a second, so the success screen waits for the real
-     answer; its rules (firestore/firestore.rules) let this page only add {email}. The page then nudges the Apps Script in
-     apps-script/, which moves the signup into the Sheet and emails the confirmation. It also checks every minute, so a lost
-     nudge only delays the email. No API key: Firestore checks every request against those rules, with or without one. */
-  var INBOX='https://firestore.googleapis.com/v1/projects/totallytabular-mailing-list/databases/(default)/documents/signups';
+  /* Firestore (Google's database) takes a signup or an unsubscribe request in a fraction of a second, so both screens wait
+     for the real answer; its rules (firestore/firestore.rules) let this page only add {email} or {token}. The page then
+     nudges the Apps Script in apps-script/, which updates the Sheet and emails the confirmation. It also checks every
+     minute, so a lost nudge only delays things. No API key: Firestore checks every request against those rules. */
+  var FIRESTORE='https://firestore.googleapis.com/v1/projects/totallytabular-mailing-list/databases/(default)/documents/';
   var NUDGE='https://script.google.com/macros/s/AKfycbxDSJLAvqmQ3S8f6_hktM9La-kYMfqKXfX7Kzo70Inww_razzLzCSHA0BqfqBbeQ8XD/exec';
-  function subscribe(address){
-    return fetch(INBOX,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({fields:{email:{stringValue:address}}})})
+  function save(collection,fields){
+    return fetch(FIRESTORE+collection,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({fields:fields})})
       .then(function(r){
         if(!r.ok)throw new Error('firestore '+r.status);
         fetch(NUDGE,{method:'POST',mode:'no-cors',keepalive:true}).catch(function(){});
       });
   }
+  function subscribe(address){return save('signups',{email:{stringValue:address}});}
 
   function clearError(){email.removeAttribute('aria-invalid');hint.textContent=HINT;hint.classList.remove('err');}
   function fail(msg){email.setAttribute('aria-invalid','true');hint.textContent=msg;hint.classList.add('err');email.focus();}
@@ -689,6 +709,27 @@ document.documentElement.setAttribute('lang','en');
       fail('Something went wrong. Try again in a moment.');
     });
   });
+
+  /* Unsubscribe page: /?unsubscribe=<token>, linked from every email. It asks first and only the button acts, because spam
+     filters open links to scan them. (A mail app's own Unsubscribe button goes to the Apps Script directly.) */
+  var u=document.getElementById('unsub'),token=new URLSearchParams(location.search).get('unsubscribe');
+  if(u&&token&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(token)&&window.fetch){
+    history.replaceState(null,'',location.pathname+location.hash);
+    var ugo=document.getElementById('unsub-go'),uhint=document.getElementById('unsub-hint');
+    var uclose=function(){if(u.open&&u.close)u.close();else u.removeAttribute('open');};
+    var closers=u.querySelectorAll('[data-close]');
+    for(var k=0;k<closers.length;k++)closers[k].addEventListener('click',uclose);
+    ugo.addEventListener('click',function(){
+      ugo.disabled=true;ugo.textContent='Unsubscribing…';uhint.hidden=true;
+      save('unsubscribes',{token:{stringValue:token}}).then(function(){
+        document.getElementById('unsub-ask').hidden=true;document.getElementById('unsub-done').hidden=false;
+      },function(){
+        ugo.disabled=false;ugo.textContent='Unsubscribe';
+        uhint.textContent='Something went wrong. Try again, or reply to any of our emails and we\'ll remove you.';uhint.hidden=false;
+      });
+    });
+    if(typeof u.showModal==='function')u.showModal();else u.setAttribute('open','');
+  }
 })();
 
 /* ---- copy the invite link ---- */
