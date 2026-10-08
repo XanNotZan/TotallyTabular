@@ -146,7 +146,7 @@ function removeSubscriber(sheet, token) {
 function sendConfirmation(email, token) {
   var page = SITE + '/?unsubscribe=' + token;
   var text = [
-    'Thanks for subscribing to Totally Tabular!',
+    'Thanks for subscribing to the Total Tabloid!',
     '',
     "We'll send articles, project news, and event announcements to this address.",
     '',
@@ -158,7 +158,7 @@ function sendConfirmation(email, token) {
     "Didn't sign up, or changed your mind? Unsubscribe: " + page
   ].join('\r\n');
   var html = '<div style="font:16px/1.5 sans-serif;color:#0F1B26">' +
-    '<p>Thanks for subscribing to Totally Tabular!</p>' +
+    '<p>Thanks for subscribing to the Total Tabloid!</p>' +
     "<p>We'll send articles, project news, and event announcements to this address.</p>" +
     '<p>In the meantime, come say hello on <a href="' + DISCORD + '">Discord</a>.</p>' +
     '<p style="font-size:13px;color:#4E5E6C">Totally Tabular &middot; <a href="' + SITE + '">totallytabular.org</a><br>' +
