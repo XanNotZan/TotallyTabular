@@ -268,7 +268,7 @@ button.btn{appearance:none;-webkit-appearance:none;margin:0;font-family:var(--bo
       </div>
     </div>
 
-    <figure class="strip" role="img" aria-label="A table of records scrolling upward. As each row crosses a dashed line, its target column pops in with a predicted value.">
+    <figure class="strip" role="img" aria-label="Rows of a table plotted as points on two of their columns, in two classes. A decision tree grows over them one split at a time, each split labeled with the column and threshold it tests, until the regions are sorted by class.">
       <canvas id="trace" aria-hidden="true"></canvas>
     </figure>
   </section>
@@ -529,29 +529,56 @@ document.documentElement.setAttribute('lang','en');
   if(document.fonts&&document.fonts.addEventListener){document.fonts.addEventListener('loadingdone',queue);}
 })();
 
-/* ---- the table: rows of records scroll up; when a row crosses the line its target pops in ---- */
+/* ---- the tree: rows plotted on two columns, then a decision tree grows over them split by split ---- */
 (function(){
   var cv=document.getElementById('trace');if(!cv||!cv.getContext)return;
   var strip=cv.parentNode,hero=document.querySelector('.hero'),ctx=cv.getContext('2d');
-  var RH=28,SPEED=34,LINE=0.5;
-  var W=0,H=0,o=0,last=0,raf=0,onScreen=true;
+  var N=150,DEPTH=3,MINLEAF=8,EDGE=0.1,STEP=1.1,WIPE=0.45,HOLD=3.2,FADE=0.6;
+  var W=0,H=0,t=0,last=0,raf=0,onScreen=true,seed=20261008,model=null;
   var reduce=window.matchMedia?window.matchMedia('(prefers-reduced-motion: reduce)'):{matches:false};
   function onMQ(mq,fn){if(!mq)return;if(mq.addEventListener)mq.addEventListener('change',fn);else if(mq.addListener)mq.addListener(fn);}
-
   function mul(a){return function(){a|=0;a=a+0x6D2B79F5|0;var t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
-  var CATS=['alpha','beta','gamma','delta'],REG=['us-east','eu-west','ap-south','us-west'],DAY=864e5,T0=Date.UTC(2026,0,1);
-  /* one deterministic record per row index, so scrolling back and forth shows the same table */
-  function row(k){
-    var r=mul(k*7919+20261008),x1=r()*100,x2=r()*10-5,x3=r()*2,x4=r()*1000|0,cat=CATS[r()*4|0],reg=REG[r()*4|0];
-    var y=0.3*x1+4*x2-6*x3+(r()-0.5)*6+(cat==='gamma'?8:0);
-    return{id:'#'+String(1000+((k%9000)+9000)%9000),cat:cat,x1:x1.toFixed(1),x2:(Math.round(x2*100)/100+0).toFixed(2),x3:x3.toFixed(3),x4:String(x4),reg:reg,date:new Date(T0+k*DAY).toISOString().slice(0,10),y:(Math.round(y*10)/10+0).toFixed(1)};
+
+  /* each scene picks two columns to plot: name, low, high, decimals */
+  var FEATS=[['age',18,80,0],['income',20,200,0],['tenure',0,120,0],['latency',5,400,0],['score',0,1,2],['visits',0,60,0],['price',1,99,0]];
+  function val(f,v){return(f[1]+v*(f[2]-f[1])).toFixed(f[3]);}
+
+  /* a scene: points whose class comes from a hidden rule (a few boxes, plus label noise), and the tree CART grows on them */
+  function build(sd){
+    var r=mul(sd),i,b,pts=[],fx=FEATS[r()*FEATS.length|0],fy;do{fy=FEATS[r()*FEATS.length|0];}while(fy===fx);
+    var boxes=[],nb=2+(r()*2|0);
+    for(i=0;i<nb;i++){var x0=r()*0.65,y0=r()*0.6;boxes.push([x0,y0,x0+0.25+r()*0.4,y0+0.3+r()*0.4]);}
+    for(i=0;i<N;i++){var x=r(),y=r(),c=0;for(b=0;b<nb;b++)if(x>=boxes[b][0]&&x<=boxes[b][2]&&y>=boxes[b][1]&&y<=boxes[b][3])c=1;if(r()<0.07)c=1-c;pts.push({x:x,y:y,c:c});}
+    var splits=[];grow(pts,[0,0,1,1],0,splits);
+    splits.sort(function(a,b){return a.d-b.d;});
+    return{pts:pts,fx:fx,fy:fy,splits:splits,cycle:splits.length*STEP+HOLD+FADE};
   }
-  var COLS=[{h:'ID',k:'id',w:64},{h:'CAT',k:'cat',w:80},{h:'X₁',k:'x1',w:72,r:1},{h:'X₂',k:'x2',w:72,r:1},{h:'X₃',k:'x3',w:72,r:1},{h:'X₄',k:'x4',w:72,r:1},{h:'REGION',k:'reg',w:96},{h:'DATE',k:'date',w:112},{h:'ŷ',k:'y',w:80,r:1,t:1}];
-  /* narrow screens lose columns in this order, and whatever is left stretches to fill the strip */
-  var DROP=['x4','reg','x3','date','x2','cat'];
+  function maj(pts){var n=0;for(var i=0;i<pts.length;i++)n+=pts[i].c;return n*2>=pts.length?1:0;}
+  function gini(pts){if(!pts.length)return 0;var p=0;for(var i=0;i<pts.length;i++)p+=pts[i].c;p/=pts.length;return 2*p*(1-p);}
+  function grow(pts,rect,d,out){
+    if(d>=DEPTH||pts.length<2*MINLEAF)return;
+    var base=gini(pts),best=null,ax,k,i,v,L,R,g;
+    for(ax=0;ax<2;ax++){
+      k=ax?'y':'x';
+      var lo=rect[ax],hi=rect[ax+2],sorted=pts.slice().sort(function(a,b){return a[k]-b[k];});
+      for(i=MINLEAF;i<=sorted.length-MINLEAF;i++){
+        if(sorted[i][k]===sorted[i-1][k])continue;
+        v=(sorted[i][k]+sorted[i-1][k])/2;
+        if(v-lo<EDGE*(hi-lo)||hi-v<EDGE*(hi-lo))continue;
+        L=sorted.slice(0,i);R=sorted.slice(i);
+        g=(L.length*gini(L)+R.length*gini(R))/pts.length;
+        if(!best||g<best.g)best={g:g,ax:ax,v:v,L:L,R:R};
+      }
+    }
+    if(!best||base-best.g<0.02)return;
+    var a=rect.slice(),b=rect.slice();a[best.ax+2]=best.v;b[best.ax]=best.v;
+    out.push({ax:best.ax,v:best.v,rect:rect,a:a,b:b,mp:maj(pts),ma:maj(best.L),mb:maj(best.R),d:d});
+    grow(best.L,a,d+1,out);grow(best.R,b,d+1,out);
+  }
+
   function tokens(){
     var cs=getComputedStyle(document.documentElement),g=function(n){return cs.getPropertyValue(n).trim();};
-    return{ink:g('--ink'),ink2:g('--ink-2'),line:g('--line'),paper:g('--paper'),now:g('--now'),nowSoft:g('--now-soft'),mono:g('--mono')};
+    return{ink:g('--ink'),ink2:g('--ink-2'),paper:g('--paper'),sig:g('--signal'),sigSoft:g('--signal-soft'),now:g('--now'),nowSoft:g('--now-soft'),mono:g('--mono')};
   }
   function size(){
     var r=strip.getBoundingClientRect();
@@ -561,58 +588,59 @@ document.documentElement.setAttribute('lang','en');
     ctx.setTransform(d,0,0,d,0,0);
     draw();
   }
-  function layout(){
-    var L=hero?parseFloat(getComputedStyle(hero).paddingLeft)||16:16,R=W-L,cols=COLS.slice(),i;
-    function width(){var t=0;for(var j=0;j<cols.length;j++)t+=cols[j].w;return t;}
-    for(i=0;i<DROP.length&&width()>R-L;i++)cols=cols.filter(function(c){return c.k!==DROP[i];});
-    var f=Math.min(1.7,(R-L)/width()),x=L,out=[],w;
-    for(i=0;i<cols.length;i++){w=Math.round(cols[i].w*f);out.push({c:{h:cols[i].h,k:cols[i].k,r:cols[i].r,t:cols[i].t,w:w},x:x});x+=w;}
-    return out;
+  function clamp(v){return v<0?0:v>1?1:v;}
+  function tag(text,x,y,align,c){
+    ctx.font='500 10px '+c.mono;ctx.textBaseline='middle';ctx.textAlign=align;
+    var w=ctx.measureText(text).width+10,bx=align==='right'?x-w:align==='center'?x-w/2:x;
+    ctx.fillStyle=c.paper;ctx.fillRect(bx,y-8,w,16);
+    ctx.fillStyle=c.ink2;ctx.fillText(text,align==='right'?x-5:align==='center'?x:x+5,y+0.5);
   }
-  function back(p){var s=1.70158;p-=1;return p*p*((s+1)*p+s)+1;}
-  function cell(x,c,text){ctx.textAlign=c.r?'right':'left';ctx.fillText(text,c.r?x+c.w-12:x+12,0);}
   function draw(){
-    var c=tokens(),cols=layout(),lineY=Math.round(H*LINE/RH)*RH+0.5,k,k0,k1,y,i,p,d,s,tc,lc;
-    for(i=0;i<cols.length;i++)if(cols[i].c.t)tc=cols[i];
+    if(!model)model=build(seed);
+    var c=tokens(),m=model,L=hero?parseFloat(getComputedStyle(hero).paddingLeft)||16:16,pad=18,i,p,sp;
+    var X=function(v){return L+v*(W-2*L);},Y=function(v){return H-pad-v*(H-2*pad);};
+    var phase=reduce.matches?m.cycle-FADE:t,fade=Math.min(1,phase/0.4,(m.cycle-phase)/FADE);
     ctx.clearRect(0,0,W,H);
-    ctx.font='500 12px '+c.mono;ctx.textBaseline='middle';
+    ctx.globalAlpha=clamp(fade);
 
-    /* the target column sits on a tint, so the eye lands there first */
-    if(tc){ctx.fillStyle=c.nowSoft;ctx.fillRect(tc.x,0,tc.c.w,H);}
+    /* regions: a split wipes its parent's tint and tints its two children by majority class, so each leaf carries one tint */
+    function box(r,cls,a){ctx.globalAlpha=clamp(fade)*a;ctx.fillStyle=cls?c.nowSoft:c.sigSoft;ctx.fillRect(X(r[0]),Y(r[3]),X(r[2])-X(r[0]),Y(r[1])-Y(r[3]));}
+    for(i=0;i<m.splits.length;i++){
+      sp=m.splits[i];p=clamp((phase-i*STEP)/WIPE);if(p<=0)break;
+      ctx.clearRect(X(sp.rect[0]),Y(sp.rect[3]),X(sp.rect[2])-X(sp.rect[0]),Y(sp.rect[1])-Y(sp.rect[3]));
+      if(p<1)box(sp.rect,sp.mp,1-p);
+      box(sp.a,sp.ma,p);box(sp.b,sp.mb,p);
+    }
+    ctx.globalAlpha=clamp(fade);
 
-    /* rows: index k has its top at k*RH-o+RH, so row 0 starts under the header and bigger k enters from the bottom */
-    k0=Math.floor((o-2*RH)/RH);k1=Math.ceil((o+H-RH)/RH);
-    for(k=k0;k<=k1;k++){
-      y=k*RH-o+RH;if(y>H||y+RH<RH)continue;
-      d=row(k);
-      ctx.strokeStyle=c.line;ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(0,Math.round(y+RH)+0.5);ctx.lineTo(W,Math.round(y+RH)+0.5);ctx.stroke();
-      ctx.save();ctx.translate(0,y+RH/2);
-      for(i=0;i<cols.length;i++){
-        lc=cols[i];
-        if(!lc.c.t){ctx.fillStyle=c.ink;cell(lc.x,lc.c,d[lc.c.k]);continue;}
-        /* the target: dots while the row is still below the line, then the value springs in as it crosses */
-        p=Math.min(1,Math.max(0,(lineY-y)/(RH*0.9)));
-        if(p<0.1){ctx.fillStyle=c.ink2;cell(lc.x,lc.c,'· · ·');}
-        else{s=back(p);ctx.save();ctx.translate(lc.x+lc.c.w-12,0);ctx.scale(s,s);ctx.globalAlpha=Math.min(1,p*2);ctx.fillStyle=c.now;ctx.textAlign='right';ctx.fillText(d.y,0,0);ctx.restore();}
+    /* the rows */
+    for(i=0;i<m.pts.length;i++){ctx.fillStyle=m.pts[i].c?c.now:c.sig;ctx.beginPath();ctx.arc(X(m.pts[i].x),Y(m.pts[i].y),3,0,Math.PI*2);ctx.fill();}
+
+    /* the splits: each line wipes across its region, then gets its label */
+    ctx.lineWidth=1.5;ctx.strokeStyle=c.ink;ctx.lineCap='round';
+    for(i=0;i<m.splits.length;i++){
+      sp=m.splits[i];p=clamp((phase-i*STEP)/WIPE);if(p<=0)break;
+      var x1,y1,x2,y2;
+      if(sp.ax===0){x1=x2=X(sp.v);y1=Y(sp.rect[1]);y2=y1+(Y(sp.rect[3])-y1)*p;}
+      else{y1=y2=Y(sp.v);x1=X(sp.rect[0]);x2=x1+(X(sp.rect[2])-x1)*p;}
+      ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
+      if(p>=1){
+        var f=sp.ax?m.fy:m.fx,text=f[0]+' ≤ '+val(f,sp.v);
+        if(sp.ax===0)tag(text,x1,Y(sp.rect[3])+12,'left',c);else tag(text,X(sp.rect[2])-2,y1-10,'right',c);
       }
-      ctx.restore();
     }
 
-    /* header, pinned over the scrolling rows */
-    ctx.fillStyle=c.paper;ctx.fillRect(0,0,W,RH);
-    ctx.strokeStyle=c.line;ctx.beginPath();ctx.moveTo(0,RH+0.5);ctx.lineTo(W,RH+0.5);ctx.stroke();
-    ctx.save();ctx.translate(0,RH/2);ctx.font='500 10px '+c.mono;ctx.fillStyle=c.ink2;
-    for(i=0;i<cols.length;i++)cell(cols[i].x,cols[i].c,cols[i].c.h);
-    ctx.restore();
-
-    /* the line a row has to cross to get its prediction */
-    ctx.strokeStyle=c.now;ctx.lineWidth=1.5;ctx.setLineDash([5,5]);ctx.beginPath();ctx.moveTo(0,lineY);ctx.lineTo(W,lineY);ctx.stroke();ctx.setLineDash([]);
+    /* axes and a title */
+    tag(m.fx[0]+' →',W-L,H-12,'right',c);
+    tag(m.fy[0]+' ↑',L,12,'left',c);
+    tag('DECISION TREE · DEPTH '+DEPTH+' · '+N+' ROWS',L,H-12,'left',c);
+    ctx.globalAlpha=1;
   }
   function visible(){return !document.hidden&&onScreen&&!(strip.closest&&strip.closest('[hidden]'));}
   function frame(ts){
     raf=0;if(reduce.matches)return;
     var dt=last?Math.min(0.05,(ts-last)/1000):0;last=ts;
-    if(visible()){o+=dt*SPEED;draw();}
+    if(visible()){t+=dt;if(model&&t>=model.cycle){t-=model.cycle;model=build(++seed);}draw();}
     raf=requestAnimationFrame(frame);
   }
   function start(){if(!raf&&!reduce.matches){last=0;raf=requestAnimationFrame(frame);}}
