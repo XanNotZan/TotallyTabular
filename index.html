@@ -130,7 +130,8 @@ button.btn{appearance:none;-webkit-appearance:none;margin:0;font-family:var(--bo
 @media (min-width:900px){
   .hero{grid-template-columns:auto minmax(0,1fr);align-items:end}
   /* the second line of the mark is a 0.84em-tall box at the bottom of the h1: give the button column that same height, anchored to the bottom, and center inside it */
-  .intro{align-self:end;height:calc(var(--mark-size) * 0.84);justify-content:center}
+  .intro{grid-column:2;grid-row:1;align-self:end;height:calc(var(--mark-size) * 0.84);justify-content:center}
+  .tagline{grid-column:1/-1;grid-row:2}
 }
 .eyebrow{margin:0;font:500 .74rem/1.4 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--ink-2)}
 .mark{margin:0 0 0 -.04em;font:800 var(--mark-size)/.84 var(--display);letter-spacing:-.035em;text-transform:uppercase;color:var(--ink);font-optical-sizing:auto;white-space:nowrap;overflow-wrap:normal}
@@ -257,6 +258,7 @@ button.btn{appearance:none;-webkit-appearance:none;margin:0;font-family:var(--bo
   <section id="home" class="view">
     <div class="wrap hero">
       <h1 class="mark">Totally<br>Tabular</h1>
+      <p class="lede tagline">Machine learning for tabular data</p>
       <div class="intro">
         <div class="cta">
           <button type="button" class="btn primary" id="sub-open">Subscribe <span class="arrow">✉</span></button>
