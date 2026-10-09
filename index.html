@@ -139,6 +139,8 @@ button.btn{appearance:none;-webkit-appearance:none;margin:0;font-family:var(--bo
 .lede{margin:0;font-size:clamp(1.05rem,1.35vw,1.2rem);line-height:1.5;color:var(--ink-2)}
 .lede code{font-family:var(--mono);font-size:.9em;color:var(--ink)}
 .cta{display:flex;flex-wrap:wrap;gap:12px}
+.tagline{margin:0;font:600 clamp(1.3rem,2.4vw,2rem)/1.2 var(--display);letter-spacing:-.02em;color:var(--ink);font-optical-sizing:auto}
+.tagline::before{content:"";display:block;width:56px;height:4px;margin-bottom:14px;background:var(--signal);border-radius:2px}
 
 #home{padding-bottom:clamp(48px,7vw,96px)}
 
@@ -258,7 +260,7 @@ button.btn{appearance:none;-webkit-appearance:none;margin:0;font-family:var(--bo
   <section id="home" class="view">
     <div class="wrap hero">
       <h1 class="mark">Totally<br>Tabular</h1>
-      <p class="lede tagline">Machine learning for tabular data</p>
+      <p class="tagline">Machine learning for tabular data</p>
       <div class="intro">
         <div class="cta">
           <button type="button" class="btn primary" id="sub-open">Subscribe <span class="arrow">✉</span></button>
