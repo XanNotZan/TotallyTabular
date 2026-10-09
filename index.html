@@ -195,7 +195,7 @@ button.btn{appearance:none;-webkit-appearance:none;margin:0;font-family:var(--bo
 /* about */
 .about-grid{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:20px}
 @media (max-width:760px){.about-grid{grid-template-columns:1fr}}
-.blurb{padding:clamp(20px,3vw,28px);border:1px dashed var(--line);background:var(--ph-bg);border-radius:2px;display:flex;flex-direction:column;gap:12px}
+.blurb{padding:clamp(20px,3vw,28px);border:1px solid var(--line);background:var(--paper-2);border-radius:2px;display:flex;flex-direction:column;gap:12px}
 .blurb p{margin:0;font-size:1.1rem;line-height:1.55;color:var(--ink-2)}
 .dbox{padding:clamp(20px,3vw,28px);background:var(--paper-2);border:1px solid var(--line);border-radius:2px;display:flex;flex-direction:column;gap:14px}
 .dbox h3{margin:0;font:800 1.5rem/1.05 var(--display);letter-spacing:-.02em}
@@ -389,9 +389,8 @@ button.btn{appearance:none;-webkit-appearance:none;margin:0;font-family:var(--bo
 
       <div class="about-grid">
         <div class="blurb">
-          <span class="tag">Placeholder · replace with the community blurb</span>
-          <p>[Two or three sentences about Totally Tabular: who it is for, what kind of work happens here, and how people take part. Keep it short enough to read in one breath.]</p>
-          <p>[Optional second paragraph: how the community started, what it values, and where it is headed.]</p>
+          <p>Totally Tabular is an open-source community for anyone interested in machine learning for tabular data. We believe that community plays an important role in the advancement of research by uniting our different perspectives under a common goal. At Totally Tabular, experts will find peers ready to discuss the latest progress in the field, and novices can expect high quality resources and discussions to further their own learning. Whether you're a researcher, an industry practitioner, or just trying to finish a paper instead of bookmarking it forever, Totally Tabular has a place for you.</p>
+          <p>As an open-source community, we’re looking to make real contributions to the field. To start, we’re organizing a discussion based reading group that reviews research papers. These discussions not only enhance our own understanding of the literature, but allow us as a community to pursue the ideas we find interesting. Our projects, articles, and research are community-driven; we want to address the problems you are interested in. Join us on <a href="https://discord.gg/H87gfV5Eku" target="_blank" rel="noopener">discord</a>, or sign up for the <a href="#" id="sub-open-2">Total Tabloid</a>, and let’s get reading.</p>
         </div>
 
         <div class="dbox">
@@ -729,6 +728,7 @@ document.documentElement.setAttribute('lang','en');
     open.focus();
   }
   open.addEventListener('click',show);
+  document.getElementById('sub-open-2').addEventListener('click',function(e){e.preventDefault();show();});
   document.getElementById('sub-close').addEventListener('click',hide);
   document.getElementById('sub-close-2').addEventListener('click',hide);
   ok.addEventListener('click',hide);
