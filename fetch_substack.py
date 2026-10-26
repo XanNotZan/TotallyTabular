@@ -76,6 +76,8 @@ def parse(xml_bytes, limit, feed):
         link = (item.findtext("link") or "").strip()
         author = (item.findtext("dc:creator", namespaces=NS) or pub_name).strip()
         summary = strip_html(item.findtext("description") or "")
+        if summary.lower() == ("by " + author).lower():
+            summary = ""  # Substack fills in a byline when the post has no subtitle
         body = strip_html(item.findtext("content:encoded", namespaces=NS) or "")
 
         date = ""
